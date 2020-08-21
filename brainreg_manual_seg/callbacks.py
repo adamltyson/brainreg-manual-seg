@@ -2,8 +2,6 @@ from glob import glob
 from pathlib import Path
 from napari.qt.threading import thread_worker
 
-from imlib.general.system import ensure_directory_exists
-
 from brainreg_manual_seg.man_seg_tools import (
     save_regions_to_file,
     analyse_region_brain_areas,
@@ -75,6 +73,7 @@ def region_analysis(
     volumes=True,
     summarise=True,
 ):
+    regions_directory.mkdir(parents=True, exist_ok=True)
     if volumes:
         print("Calculating region volume distribution")
         print(f"Saving summary volumes to: {regions_directory}")
@@ -111,7 +110,7 @@ def save_all(
 
 def save_label_layers(regions_directory, label_layers):
     print(f"Saving regions to: {regions_directory}")
-    ensure_directory_exists(regions_directory)
+    regions_directory.mkdir(parents=True, exist_ok=True)
     for label_layer in label_layers:
         save_regions_to_file(label_layer, regions_directory)
 

@@ -1,6 +1,3 @@
-from imlib.general.system import ensure_directory_exists
-
-
 class Paths:
     """
     A single class to hold all file paths that may be used. Any paths
@@ -10,9 +7,7 @@ class Paths:
 
     def __init__(self, brainreg_directory, standard_space=True):
         self.brainreg_directory = brainreg_directory
-
         self.main_directory = self.brainreg_directory / "manual_segmentation"
-        ensure_directory_exists(self.main_directory)
 
         if standard_space:
             self.segmentation_directory = (
@@ -20,8 +15,6 @@ class Paths:
             )
         else:
             self.segmentation_directory = self.main_directory / "sample_space"
-
-        ensure_directory_exists(self.segmentation_directory)
 
         self.regions_directory = self.join_seg_files("regions")
         self.region_summary_csv = self.regions_directory / "summary.csv"

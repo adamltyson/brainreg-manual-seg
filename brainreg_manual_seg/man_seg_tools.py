@@ -10,7 +10,6 @@ from vedo import mesh, Spheres, Spline
 
 from imlib.pandas.misc import initialise_df
 from imlib.general.list import unique_elements_lists
-from imlib.general.system import ensure_directory_exists
 from imlib.general.pathlib import append_to_pathlib_stem
 
 from skimage import measure
@@ -425,8 +424,7 @@ def convert_and_save_points(
     :param output_directory: path to save points to
     """
 
-    output_directory = Path(output_directory)
-    ensure_directory_exists(output_directory)
+    output_directory.mkdir(parents=True, exist_ok=True)
 
     for points_layer in points_layers:
         save_single_track_layer(

@@ -1,3 +1,5 @@
+import numpy as np
+
 from qtpy import QtCore
 from pathlib import Path
 from glob import glob
@@ -50,12 +52,12 @@ class General(QWidget):
     def __init__(
         self,
         viewer,
-        point_size=30,
-        spline_size=10,
+        point_size=100,
+        spline_size=50,
         track_file_extension=".h5",
         image_file_extension=".tiff",
         num_colors=10,
-        brush_size=30,
+        brush_size=250,
         spline_points_default=1000,
         spline_smoothing_default=0.1,
         fit_degree_default=3,
@@ -68,6 +70,7 @@ class General(QWidget):
         super(General, self).__init__()
         self.point_size = point_size
         self.spline_size = spline_size
+        self.brush_size = brush_size
 
         # general variables
         self.viewer = viewer
@@ -84,7 +87,6 @@ class General(QWidget):
         # region variables
         self.label_layers = []
         self.image_file_extension = image_file_extension
-        self.brush_size = brush_size
         self.num_colors = num_colors
         self.calculate_volumes_default = calculate_volumes_default
         self.summarise_volumes_default = summarise_volumes_default
@@ -263,6 +265,8 @@ class General(QWidget):
         self.atlas = BrainGlobeAtlas(self.metadata["atlas"])
         self.atlas_layer = self.viewer.layers[self.metadata["atlas"]]
 
+        self.reset_variables()
+
         self.initialise_image_view()
 
         @self.atlas_layer.mouse_move_callbacks.append
@@ -274,6 +278,14 @@ class General(QWidget):
         self.initialise_region_segmentation()
         self.initialise_track_tracing()
         self.status_label.setText("Ready")
+
+    def reset_variables(self):
+        self.mean_voxel_size = int(
+            np.sum(self.atlas.resolution) / len(self.atlas.resolution)
+        )
+        self.point_size = self.point_size / self.mean_voxel_size
+        self.spline_size = self.spline_size / self.mean_voxel_size
+        self.brush_size = self.brush_size / self.mean_voxel_size
 
     def initialise_track_tracing(self):
         track_files = glob(

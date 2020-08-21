@@ -4,9 +4,6 @@ from brainreg_manual_seg.widgets import General
 
 def main(
     num_colors=10,
-    brush_size=30,
-    point_size=30,
-    spline_size=10,
     track_file_extension=".h5",
     image_file_extension=".tiff",
     spline_points_default=1000,
@@ -24,11 +21,8 @@ def main(
         viewer = napari.Viewer(title="Manual segmentation")
         general = General(
             viewer,
-            point_size=point_size,
-            spline_size=spline_size,
             track_file_extension=track_file_extension,
             image_file_extension=image_file_extension,
-            brush_size=brush_size,
             num_colors=num_colors,
             spline_points_default=spline_points_default,
             spline_smoothing_default=spline_smoothing_default,

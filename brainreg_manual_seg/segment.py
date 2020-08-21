@@ -16,10 +16,6 @@ def main(
     add_surface_point_default=False,
     calculate_volumes_default=True,
     summarise_volumes_default=True,
-    region_alpha_default=0.8,
-    structure_alpha_default=0.8,
-    shading_default="flat",
-    region_to_add_default="",
 ):
 
     print("Loading manual segmentation GUI.\n ")
@@ -41,10 +37,6 @@ def main(
             add_surface_point_default=add_surface_point_default,
             calculate_volumes_default=calculate_volumes_default,
             summarise_volumes_default=summarise_volumes_default,
-            region_alpha_default=region_alpha_default,
-            structure_alpha_default=structure_alpha_default,
-            shading_default=shading_default,
-            region_to_add_default=region_to_add_default,
         )
         viewer.window.add_dock_widget(general, name="General", area="right")
 

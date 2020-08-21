@@ -16,7 +16,7 @@ from imlib.general.pathlib import append_to_pathlib_stem
 from skimage import measure
 
 
-def convert_obj_to_br(verts, faces, voxel_size=10):
+def convert_obj_to_br(verts, faces, voxel_size):
     if voxel_size != 1:
         verts = verts * voxel_size
 
@@ -30,7 +30,7 @@ def extract_and_save_object(
     verts, faces, normals, values = measure.marching_cubes_lewiner(
         image, threshold, step_size=step_size
     )
-    verts, faces = convert_obj_to_br(verts, faces, voxel_size=voxel_size)
+    verts, faces = convert_obj_to_br(verts, faces, voxel_size)
     marching_cubes_to_obj(
         (verts, faces, normals, values), str(output_file_name)
     )

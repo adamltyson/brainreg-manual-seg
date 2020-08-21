@@ -11,7 +11,6 @@ from brainreg_manual_seg.callbacks import (
     track_analysis,
     save_all,
 )
-from brainreg_manual_seg.brainrender_tools import view_in_brainrender
 from brainreg_manual_seg.man_seg_tools import (
     add_existing_region_segmentation,
     add_existing_track_layers,
@@ -23,7 +22,6 @@ from brainreg_manual_seg.gui.elements import (
     add_checkbox,
     add_float_box,
     add_int_box,
-    add_combobox,
 )
 
 from qtpy.QtWidgets import (
@@ -31,13 +29,9 @@ from qtpy.QtWidgets import (
     QFileDialog,
     QGridLayout,
     QGroupBox,
-    QApplication,
     QWidget,
 )
 from bg_atlasapi.bg_atlas import BrainGlobeAtlas
-
-
-BRAINRENDER_TO_NAPARI_SCALE = 0.3
 
 
 def display_brain_region_name(layer, structures):
@@ -69,11 +63,6 @@ class General(QWidget):
         add_surface_point_default=False,
         calculate_volumes_default=True,
         summarise_volumes_default=True,
-        region_alpha_default=0.8,
-        structure_alpha_default=0.8,
-        shading_default="flat",
-        region_to_add_default="",
-        vtkplotter_shading_types=["flat", "giroud", "phong"],
         boundaries_string="Boundaries",
     ):
         super(General, self).__init__()
@@ -91,12 +80,6 @@ class General(QWidget):
         self.summarise_track_default = summarise_track_default
         self.add_surface_point_default = add_surface_point_default
         self.fit_degree_default = fit_degree_default
-        self.napari_point_size = int(
-            BRAINRENDER_TO_NAPARI_SCALE * self.point_size
-        )
-        self.napari_spline_size = int(
-            BRAINRENDER_TO_NAPARI_SCALE * self.spline_size
-        )
 
         # region variables
         self.label_layers = []
@@ -108,13 +91,6 @@ class General(QWidget):
 
         # atlas variables
         self.region_labels = []
-
-        # brainrender variables
-        self.region_alpha_default = region_alpha_default
-        self.structure_alpha_default = structure_alpha_default
-        self.shading_default = shading_default
-        self.region_to_add_default = region_to_add_default
-        self.vtkplotter_shading_types = vtkplotter_shading_types
 
         self.common_coordinate_space_default = True
 
@@ -243,59 +219,6 @@ class General(QWidget):
         layout.setSpacing(4)
         self.region_panel.setVisible(False)
 
-    def add_brainrender_panel(self, layout):
-        self.initialise_brainrender()
-
-        self.brainrender_panel = QGroupBox("brainrender")
-        brainrender_layout = QGridLayout()
-
-        add_button(
-            "View in Brainrender",
-            brainrender_layout,
-            self.to_brainrender,
-            4,
-            1,
-        )
-
-        self.region_alpha = add_float_box(
-            brainrender_layout,
-            self.region_alpha_default,
-            0,
-            1,
-            "Segmented region alpha",
-            0.1,
-            0,
-        )
-
-        self.structure_alpha = add_float_box(
-            brainrender_layout,
-            self.structure_alpha_default,
-            0,
-            1,
-            "Atlas region alpha",
-            0.1,
-            1,
-        )
-
-        self.shading = add_combobox(
-            brainrender_layout,
-            "Segmented region shading",
-            self.vtkplotter_shading_types,
-            2,
-        )
-
-        self.region_to_render = add_combobox(
-            brainrender_layout, "Region to render", self.available_meshes, 3,
-        )
-
-        brainrender_layout.setColumnMinimumWidth(1, 150)
-        self.brainrender_panel.setLayout(brainrender_layout)
-        layout.addWidget(self.brainrender_panel, 6, 0, 1, 2)
-
-        layout.setAlignment(QtCore.Qt.AlignTop)
-        layout.setSpacing(4)
-        self.brainrender_panel.setVisible(False)
-
     def initialise_image_view(self):
         self.set_z_position()
 
@@ -346,7 +269,6 @@ class General(QWidget):
         def display_region_name(layer, event):
             display_brain_region_name(layer, self.atlas.structures)
 
-        self.add_brainrender_panel(self.layout)
         self.load_button.setMinimumWidth(0)
         self.save_button.setVisible(True)
         self.initialise_region_segmentation()
@@ -361,18 +283,17 @@ class General(QWidget):
             for track_file in track_files:
                 self.track_layers.append(
                     add_existing_track_layers(
-                        self.viewer, track_file, self.napari_point_size,
+                        self.viewer, track_file, self.point_size,
                     )
                 )
         self.track_panel.setVisible(True)
         self.region_panel.setVisible(True)
-        self.brainrender_panel.setVisible(True)
+        self.scene = Scene(add_root=True, atlas=self.atlas.atlas_name)
+        self.splines = None
 
     def add_track(self):
         print("Adding a new track\n")
-        add_new_track_layer(
-            self.viewer, self.track_layers, self.napari_point_size
-        )
+        add_new_track_layer(self.viewer, self.track_layers, self.point_size)
 
     def run_track_analysis(self):
         print("Running track analysis")
@@ -381,7 +302,7 @@ class General(QWidget):
             self.scene,
             self.atlas,
             self.paths.tracks_directory,
-            self.napari_spline_size,
+            self.spline_size,
             add_surface_to_points=self.add_surface_point_checkbox.isChecked(),
             spline_points=self.spline_points.value(),
             fit_degree=self.fit_degree.value(),
@@ -423,23 +344,6 @@ class General(QWidget):
             summarise=self.summarise_volumes_checkbox.isChecked(),
         )
         worker.start()
-
-    def initialise_brainrender(self):
-        self.scene = Scene(add_root=True, atlas=self.atlas.atlas_name)
-        self.splines = None
-        self.available_meshes = [""] + list(self.atlas.lookup_df["acronym"])
-
-    def to_brainrender(self):
-        print("Closing viewer and viewing in brainrender.")
-        QApplication.closeAllWindows()
-        view_in_brainrender(
-            self.splines,
-            self.paths.regions_directory,
-            alpha=self.region_alpha.value(),
-            shading=str(self.shading.currentText()),
-            regions_to_add=str(self.region_to_render.currentText()),
-            region_alpha=self.structure_alpha.value(),
-        )
 
     def save(self):
         print("Saving")

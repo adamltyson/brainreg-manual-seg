@@ -99,12 +99,15 @@ def save_all(
     points_layers,
     track_file_extension=".h5",
 ):
-    save_label_layers(regions_directory, label_layers)
-    save_track_layers(
-        tracks_directory,
-        points_layers,
-        track_file_extension=track_file_extension,
-    )
+    if label_layers:
+        save_label_layers(regions_directory, label_layers)
+
+    if points_layers:
+        save_track_layers(
+            tracks_directory,
+            points_layers,
+            track_file_extension=track_file_extension,
+        )
     print("Finished!\n")
 
 

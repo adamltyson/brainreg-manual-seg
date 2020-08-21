@@ -358,12 +358,13 @@ class General(QWidget):
         worker.start()
 
     def save(self):
-        print("Saving")
-        worker = save_all(
-            self.paths.regions_directory,
-            self.paths.tracks_directory,
-            self.label_layers,
-            self.track_layers,
-            track_file_extension=self.track_file_extension,
-        )
-        worker.start()
+        if self.label_layers or self.track_layers:
+            print("Saving")
+            worker = save_all(
+                self.paths.regions_directory,
+                self.paths.tracks_directory,
+                self.label_layers,
+                self.track_layers,
+                track_file_extension=self.track_file_extension,
+            )
+            worker.start()

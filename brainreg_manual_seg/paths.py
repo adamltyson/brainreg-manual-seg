@@ -8,12 +8,18 @@ class Paths:
     deleted if "--debug" is not used.
     """
 
-    def __init__(self, brainreg_directory):
+    def __init__(self, brainreg_directory, standard_space=True):
         self.brainreg_directory = brainreg_directory
 
-        self.segmentation_directory = (
-            self.brainreg_directory / "manual_segmentation"
-        )
+        self.main_directory = self.brainreg_directory / "manual_segmentation"
+        ensure_directory_exists(self.main_directory)
+
+        if standard_space:
+            self.segmentation_directory = (
+                self.main_directory / "standard_space"
+            )
+        else:
+            self.segmentation_directory = self.main_directory / "sample_space"
 
         ensure_directory_exists(self.segmentation_directory)
 
@@ -21,9 +27,6 @@ class Paths:
         self.region_summary_csv = self.regions_directory / "summary.csv"
 
         self.tracks_directory = self.join_seg_files("tracks")
-
-    def join_reg_files(self, filename):
-        return self.brainreg_directory / filename
 
     def join_seg_files(self, filename):
         return self.segmentation_directory / filename

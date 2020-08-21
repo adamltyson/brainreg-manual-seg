@@ -1,3 +1,5 @@
+import imio
+
 import numpy as np
 import pandas as pd
 
@@ -7,61 +9,155 @@ from skimage.measure import regionprops_table
 from vedo import mesh, Spheres, Spline
 
 from imlib.pandas.misc import initialise_df
-from imlib.source.source_files import source_custom_config_amap
 from imlib.general.list import unique_elements_lists
 from imlib.general.system import ensure_directory_exists
+from imlib.general.pathlib import append_to_pathlib_stem
 
-from neuro.generic_neuro_tools import save_brain
-from neuro.visualise.brainrender_tools import (
-    volume_to_vector_array_to_obj_file,
-    load_regions_into_brainrender,
-)
-from neuro.atlas_tools.array import lateralise_atlas
-from neuro.atlas_tools.misc import get_voxel_volume, get_atlas_pixel_sizes
-from neuro.structures.structures_tree import (
-    atlas_value_to_name,
-    UnknownAtlasValue,
-)
-from neuro.visualise.napari_tools.layers import (
-    prepare_load_nii,
-    add_new_label_layer,
-)
+from skimage import measure
 
 
-def summarise_brain_regions(label_layers, filename):
+def convert_obj_to_br(verts, faces, voxel_size=10):
+    if voxel_size != 1:
+        verts = verts * voxel_size
+
+    faces = faces + 1
+    return verts, faces
+
+
+def extract_and_save_object(
+    image, output_file_name, voxel_size, threshold=0, step_size=1
+):
+    verts, faces, normals, values = measure.marching_cubes_lewiner(
+        image, threshold, step_size=step_size
+    )
+    verts, faces = convert_obj_to_br(verts, faces, voxel_size=voxel_size)
+    marching_cubes_to_obj(
+        (verts, faces, normals, values), str(output_file_name)
+    )
+
+
+def marching_cubes_to_obj(marching_cubes_out, output_file):
+    """
+    Saves the output of skimage.measure.marching_cubes as an .obj file
+    :param marching_cubes_out: tuple
+    :param output_file: str
+    """
+
+    verts, faces, normals, _ = marching_cubes_out
+    with open(output_file, "w") as f:
+        for item in verts:
+            f.write(f"v {item[0]} {item[1]} {item[2]}\n")
+        for item in normals:
+            f.write(f"vn {item[0]} {item[1]} {item[2]}\n")
+        for item in faces:
+            f.write(
+                f"f {item[0]}//{item[0]} {item[1]}//{item[1]} "
+                f"{item[2]}//{item[2]}\n"
+            )
+        f.close()
+
+
+def volume_to_vector_array_to_obj_file(
+    image,
+    output_path,
+    voxel_size=50,
+    step_size=1,
+    threshold=0,
+    deal_with_regions_separately=False,
+):
+    # BR is oriented differently
+    image = np.flip(image, axis=2)
+    if deal_with_regions_separately:
+        for label_id in np.unique(image):
+            if label_id != 0:
+                filename = append_to_pathlib_stem(
+                    Path(output_path), "_" + str(label_id)
+                )
+                image = image == label_id
+                extract_and_save_object(
+                    image,
+                    filename,
+                    voxel_size,
+                    threshold=threshold,
+                    step_size=step_size,
+                )
+    else:
+        extract_and_save_object(
+            image,
+            output_path,
+            voxel_size,
+            threshold=threshold,
+            step_size=step_size,
+        )
+
+
+def lateralise_atlas(
+    atlas, hemispheres, left_hemisphere_value=1, right_hemisphere_value=2
+):
+    atlas_left = atlas[hemispheres == left_hemisphere_value]
+    atlas_right = atlas[hemispheres == right_hemisphere_value]
+    return atlas_left, atlas_right
+
+
+def add_new_label_layer(
+    viewer,
+    base_image,
+    name="region",
+    selected_label=1,
+    num_colors=10,
+    brush_size=30,
+):
+    """
+    Takes an existing napari viewer, and adds a blank label layer
+    (same shape as base_image)
+    :param viewer: Napari viewer instance
+    :param np.array base_image: Underlying image (for the labels to be
+    referencing)
+    :param str name: Name of the new labels layer
+    :param int selected_label: Label ID to be preselected
+    :param int num_colors: How many colors (labels)
+    :param int brush_size: Default size of the label brush
+    :return label_layer: napari labels layer
+    """
+    labels = np.empty_like(base_image)
+    label_layer = viewer.add_labels(labels, num_colors=num_colors, name=name)
+    label_layer.selected_label = selected_label
+    label_layer.brush_size = brush_size
+    return label_layer
+
+
+def summarise_brain_regions(label_layers, filename, atlas_resolution):
     summaries = []
     for label_layer in label_layers:
         summaries.append(summarise_single_brain_region(label_layer))
 
     result = pd.concat(summaries)
-
+    # TODO: use atlas.space to make these more intuitive
     volume_header = "volume_mm3"
     length_columns = [
-        "x_min_um",
-        "y_min_um",
-        "z_min_um",
-        "x_max_um",
-        "y_max_um",
-        "z_max_um",
-        "x_center_um",
-        "y_center_um",
-        "z_center_um",
+        "axis_0_min_um",
+        "axis_1_min_um",
+        "axis_2_min_um",
+        "axis_0_max_um",
+        "axis_1_max_um",
+        "axis_2_max_um",
+        "axis_0_center_um",
+        "axis_1_center_um",
+        "axis_2_center_um",
     ]
 
     result.columns = ["region"] + [volume_header] + length_columns
 
-    atlas_pixel_sizes = get_atlas_pixel_sizes(source_custom_config_amap())
-    voxel_volume = get_voxel_volume(source_custom_config_amap()) / (1000 ** 3)
+    voxel_volume_in_mm = np.prod(atlas_resolution) / (1000 ** 3)
 
-    result[volume_header] = result[volume_header] * voxel_volume
+    result[volume_header] = result[volume_header] * voxel_volume_in_mm
 
     for header in length_columns:
-        for dim in atlas_pixel_sizes.keys():
-            if header.startswith(dim):
-                scale = float(atlas_pixel_sizes[dim])
-        assert scale > 0
-
-        result[header] = result[header] * scale
+        for dim, idx in enumerate(atlas_resolution):
+            if header.startswith(f"axis_{idx}"):
+                scale = float(dim)
+                assert scale > 0
+                result[header] = result[header] * scale
 
     result.to_csv(filename, index=False)
 
@@ -85,13 +181,9 @@ def summarise_single_brain_region(
     return df
 
 
-def add_existing_track_layers(
-    viewer, track_file, point_size, x_scaling, y_scaling, z_scaling
-):
+def add_existing_track_layers(viewer, track_file, point_size):
     max_z = len(viewer.layers[0].data)
-    data = brainrender_track_to_napari(
-        track_file, x_scaling, y_scaling, z_scaling, max_z
-    )
+    data = brainrender_track_to_napari(track_file, max_z)
     new_points_layer = viewer.add_points(
         data, n_dimensional=True, size=point_size, name=Path(track_file).stem,
     )
@@ -99,13 +191,11 @@ def add_existing_track_layers(
     return new_points_layer
 
 
-def brainrender_track_to_napari(
-    track_file, x_scaling, y_scaling, z_scaling, max_z
-):
+def brainrender_track_to_napari(track_file, max_z):
     points = pd.read_hdf(track_file)
-    points["x"] = points["x"] / z_scaling
-    points["z"] = points["z"] / x_scaling
-    points["y"] = points["y"] / y_scaling
+    points["x"] = points["x"]
+    points["z"] = points["z"]
+    points["y"] = points["y"]
 
     points["x"] = max_z - points["x"]
 
@@ -113,15 +203,10 @@ def brainrender_track_to_napari(
 
 
 def add_existing_label_layers(
-    viewer,
-    label_file,
-    selected_label=1,
-    num_colors=10,
-    brush_size=30,
-    memory=False,
+    viewer, label_file, selected_label=1, num_colors=10, brush_size=30,
 ):
     """
-    Loads an existing (nii) image as a napari labels layer
+    Loads an existing image as a napari labels layer
     :param viewer: Napari viewer instance
     :param label_file: Filename of the image to be loaded
     :param int selected_label: Label ID to be preselected
@@ -130,7 +215,7 @@ def add_existing_label_layers(
     :return label_layer: napari labels layer
     """
     label_file = Path(label_file)
-    labels = prepare_load_nii(label_file, memory=memory)
+    labels = imio.load_any(label_file)
     label_layer = viewer.add_labels(
         labels, num_colors=num_colors, name=label_file.stem
     )
@@ -142,19 +227,15 @@ def add_existing_label_layers(
 def save_regions_to_file(
     label_layer,
     destination_directory,
-    template_image,
     ignore_empty=True,
     obj_ext=".obj",
-    image_extension=".nii",
+    image_extension=".tiff",
 ):
     """
     Analysed the regions (to see what brain areas they are in) and saves
     the segmented regions to file (both as .obj and .nii)
     :param label_layer: napari labels layer (with segmented regions)
     :param destination_directory: Where to save files to
-    :param template_image: Existing image of size/shape of the
-    destination images
-    the values in "annotations" and a "name column"
     :param ignore_empty: If True, don't attempt to save empty images
     :param obj_ext: File extension for the obj files
     :param image_extension: File extension fo the image files
@@ -164,8 +245,6 @@ def save_regions_to_file(
         if data.sum() == 0:
             return
 
-    # swap data back to original orientation from napari orientation
-    data = np.swapaxes(data, 2, 0)
     name = label_layer.name
 
     filename = destination_directory / (name + obj_ext)
@@ -174,27 +253,21 @@ def save_regions_to_file(
     )
 
     filename = destination_directory / (name + image_extension)
-    save_brain(
-        data, template_image, filename,
-    )
+    imio.to_tiff(data.astype(np.int16), filename)
 
 
 def analyse_region_brain_areas(
     label_layer,
+    atlas_layer_data,
     destination_directory,
-    annotations,
-    hemispheres,
-    structures_reference_df,
+    atlas,
     extension=".csv",
     ignore_empty=True,
 ):
     """
 
     :param label_layer: napari labels layer (with segmented regions)
-    :param np.array annotations: numpy array of the brain area annotations
-    :param np.array hemispheres: numpy array of hemipshere annotations
-    :param structures_reference_df: Pandas dataframe with "id" column (matching
-    the values in "annotations" and a "name column"
+
     :param ignore_empty: If True, don't analyse empty regions
     """
 
@@ -203,18 +276,16 @@ def analyse_region_brain_areas(
         if data.sum() == 0:
             return
 
-    # swap data back to original orientation from napari orientation
-    data = np.swapaxes(data, 2, 0)
     name = label_layer.name
 
-    masked_annotations = data.astype(bool) * annotations
+    masked_annotations = data.astype(bool) * atlas_layer_data
 
     # TODO: don't hardcode hemisphere value. Get from atlas config
     annotations_left, annotations_right = lateralise_atlas(
         masked_annotations,
-        hemispheres,
-        left_hemisphere_value=2,
-        right_hemisphere_value=1,
+        atlas.hemispheres,
+        left_hemisphere_value=atlas.left_hemisphere_value,
+        right_hemisphere_value=atlas.right_hemisphere_value,
     )
 
     unique_vals_left, counts_left = np.unique(
@@ -223,9 +294,7 @@ def analyse_region_brain_areas(
     unique_vals_right, counts_right = np.unique(
         annotations_right, return_counts=True
     )
-
-    voxel_volume = get_voxel_volume(source_custom_config_amap())
-    voxel_volume_in_mm = voxel_volume / (1000 ** 3)
+    voxel_volume_in_mm = np.prod(atlas.resolution) / (1000 ** 3)
 
     df = initialise_df(
         "structure_name",
@@ -250,7 +319,7 @@ def analyse_region_brain_areas(
                 df = add_structure_volume_to_df(
                     df,
                     atlas_value,
-                    structures_reference_df,
+                    atlas.structures,
                     unique_vals_left,
                     unique_vals_right,
                     counts_left,
@@ -259,10 +328,10 @@ def analyse_region_brain_areas(
                     total_volume_voxels=total_volume_region,
                 )
 
-            except UnknownAtlasValue:
+            except KeyError:
                 print(
-                    "Value: {} is not in the atlas structure reference file. "
-                    "Not calculating the volume".format(atlas_value)
+                    f"Value: {atlas_value} is not in the atlas structure"
+                    f" reference file. Not calculating the volume"
                 )
     filename = destination_directory / (name + extension)
     df.to_csv(filename, index=False)
@@ -285,7 +354,7 @@ def get_total_volume_regions(
 def add_structure_volume_to_df(
     df,
     atlas_value,
-    structures_reference_df,
+    atlas_structures,
     unique_vals_left,
     unique_vals_right,
     counts_left,
@@ -293,7 +362,7 @@ def add_structure_volume_to_df(
     voxel_volume,
     total_volume_voxels=None,
 ):
-    name = atlas_value_to_name(atlas_value, structures_reference_df)
+    name = atlas_structures[atlas_value]["name"]
 
     left_volume, left_percentage = get_volume_in_hemisphere(
         atlas_value,
@@ -347,23 +416,13 @@ def get_volume_in_hemisphere(
 
 
 def convert_and_save_points(
-    points_layers,
-    output_directory,
-    x_scaling,
-    y_scaling,
-    z_scaling,
-    max_z,
-    track_file_extension=".h5",
+    points_layers, output_directory, track_file_extension=".h5",
 ):
     """
     Converts the points from the napari format (in image space) to brainrender
     (in atlas space)
     :param points_layers: list of points layers
     :param output_directory: path to save points to
-    :param x_scaling: scaling from image space to brainrender scene
-    :param y_scaling: scaling from image space to brainrender scene
-    :param z_scaling: scaling from image space to brainrender scene
-    :param max_z: Maximum extent of the image in z
     """
 
     output_directory = Path(output_directory)
@@ -373,34 +432,18 @@ def convert_and_save_points(
         save_single_track_layer(
             points_layer,
             output_directory,
-            x_scaling,
-            y_scaling,
-            z_scaling,
-            max_z,
             track_file_extension=track_file_extension,
         )
 
 
 def save_single_track_layer(
-    layer,
-    output_directory,
-    x_scaling,
-    y_scaling,
-    z_scaling,
-    max_z,
-    track_file_extension=".h5",
+    layer, output_directory, track_file_extension=".h5",
 ):
     output_filename = output_directory / (layer.name + track_file_extension)
     cells = layer.data.astype(np.int16)
     cells = pd.DataFrame(cells)
 
     cells.columns = ["x", "y", "z"]
-
-    # weird scaling due to the ARA coordinate space
-    cells["x"] = max_z - cells["x"]
-    cells["x"] = z_scaling * cells["x"]
-    cells["z"] = x_scaling * cells["z"]
-    cells["y"] = y_scaling * cells["y"]
     cells.to_hdf(output_filename, key="df", mode="w")
 
 
@@ -449,7 +492,7 @@ def analyse_track(
         )
 
     far_point = np.expand_dims(points[-1], axis=0)
-    scene.add_vtkactor(Spheres(far_point, r=point_radius).color("n"))
+    scene.add_actor(Spheres(far_point, r=point_radius).color("n"))
 
     spline = (
         Spline(
@@ -489,13 +532,11 @@ def add_surface_point_to_points(
         root_mesh.closestPoint(points[0]), axis=0
     )
     points = np.concatenate([surface_intersection, points], axis=0)
-    scene.add_vtkactor(
-        Spheres(surface_intersection, r=point_radius).color(color)
-    )
+    scene.add_actor(Spheres(surface_intersection, r=point_radius).color(color))
     return scene, points
 
 
-def analyse_track_anatomy(scene, spline, file_path, verbose=True):
+def analyse_track_anatomy(atlas, spline, file_path, verbose=True):
     """
     For a given spline, and brainrender scene, find the brain region that each
     "segment" is in, and save to csv.
@@ -507,10 +548,14 @@ def analyse_track_anatomy(scene, spline, file_path, verbose=True):
     """
     if verbose:
         print("Determining the brain region for each segment of the spline")
-    spline_regions = [
-        scene.atlas.get_structure_from_coordinates(p, just_acronym=False)
-        for p in spline.points().tolist()
-    ]
+    spline_regions = []
+    for p in spline.points().tolist():
+        try:
+            spline_regions.append(
+                atlas.structures[atlas.structure_from_coords(p)]
+            )
+        except KeyError:
+            spline_regions.append(None)
 
     df = pd.DataFrame(
         columns=["Position", "Region ID", "Region acronym", "Region name"]
@@ -541,53 +586,6 @@ def analyse_track_anatomy(scene, spline, file_path, verbose=True):
     df.to_csv(file_path, index=False)
 
 
-def display_track_in_brainrender(
-    scene, spline, regions_to_add=[], region_alpha=0.3, verbose=True
-):
-    """
-
-    :param scene: brainrender scene object
-    :param spline: vtkplotter spline object
-    :param regions_to_add: List of additional brain regions to add, as a list
-    of acronyms
-    :param region_alpha: Opacity of the displayed regions
-    :param bool verbose: Whether to print the progress
-    """
-    if verbose:
-        print("Visualising 3D data in brainrender")
-    scene.add_vtkactor(spline)
-    scene.add_brain_regions(regions_to_add, alpha=region_alpha)
-    scene.verbose = False
-    return scene
-
-
-def view_in_brainrender(
-    scene,
-    spline,
-    regions_directory,
-    alpha=0.8,
-    shading="flat",
-    region_to_add=[],
-    region_alpha=0.3,
-):
-    obj_files = glob(str(regions_directory) + "/*.obj")
-    if obj_files:
-        scene = load_regions_into_brainrender(
-            scene, obj_files, alpha=alpha, shading=shading
-        )
-    try:
-        scene = display_track_in_brainrender(
-            scene,
-            spline,
-            regions_to_add=region_to_add,
-            region_alpha=region_alpha,
-        )
-    except:
-        pass
-
-    scene.render()
-
-
 def add_new_track_layer(viewer, track_layers, point_size):
     num = len(track_layers)
     new_track_layers = viewer.add_points(
@@ -613,11 +611,9 @@ def add_new_region_layer(
 
 
 def add_existing_region_segmentation(
-    directory, viewer, label_layers, file_extension, memory=False
+    directory, viewer, label_layers, file_extension
 ):
     label_files = glob(str(directory) + "/*" + file_extension)
     if directory and label_files != []:
         for label_file in label_files:
-            label_layers.append(
-                add_existing_label_layers(viewer, label_file, memory=memory)
-            )
+            label_layers.append(add_existing_label_layers(viewer, label_file))

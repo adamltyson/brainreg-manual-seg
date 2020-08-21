@@ -11,13 +11,12 @@ from brainreg_manual_seg.callbacks import (
     track_analysis,
     save_all,
 )
-
+from brainreg_manual_seg.brainrender_tools import view_in_brainrender
 from brainreg_manual_seg.man_seg_tools import (
     add_existing_region_segmentation,
     add_existing_track_layers,
     add_new_track_layer,
     add_new_region_layer,
-    view_in_brainrender,
 )
 from brainreg_manual_seg.gui.elements import (
     add_button,
@@ -38,7 +37,6 @@ from qtpy.QtWidgets import (
 from bg_atlasapi.bg_atlas import BrainGlobeAtlas
 
 
-memory = False
 BRAINRENDER_TO_NAPARI_SCALE = 0.3
 
 
@@ -61,10 +59,7 @@ class General(QWidget):
         point_size=30,
         spline_size=10,
         track_file_extension=".h5",
-        image_file_extension=".nii",
-        x_scaling=10,
-        y_scaling=10,
-        z_scaling=10,
+        image_file_extension=".tiff",
         num_colors=10,
         brush_size=30,
         spline_points_default=1000,
@@ -87,10 +82,6 @@ class General(QWidget):
 
         # general variables
         self.viewer = viewer
-
-        self.x_scaling = x_scaling
-        self.y_scaling = y_scaling
-        self.z_scaling = z_scaling
 
         # track variables
         self.track_layers = []
@@ -330,7 +321,10 @@ class General(QWidget):
             else:
                 plugin = "brainreg"
             self.viewer.open(str(self.directory), plugin=plugin)
-            self.paths = Paths(self.directory)
+            self.paths = Paths(
+                self.directory,
+                standard_space=self.common_coordinate_space_checkbox.isChecked(),
+            )
 
             self.initialise_layers()
 
@@ -367,12 +361,7 @@ class General(QWidget):
             for track_file in track_files:
                 self.track_layers.append(
                     add_existing_track_layers(
-                        self.viewer,
-                        track_file,
-                        self.napari_point_size,
-                        self.x_scaling,
-                        self.y_scaling,
-                        self.z_scaling,
+                        self.viewer, track_file, self.napari_point_size,
                     )
                 )
         self.track_panel.setVisible(True)
@@ -389,12 +378,9 @@ class General(QWidget):
         print("Running track analysis")
         self.scene, self.splines = track_analysis(
             self.viewer,
-            self.base_layer,
             self.scene,
+            self.atlas,
             self.paths.tracks_directory,
-            self.x_scaling,
-            self.y_scaling,
-            self.z_scaling,
             self.napari_spline_size,
             add_surface_to_points=self.add_surface_point_checkbox.isChecked(),
             spline_points=self.spline_points.value(),
@@ -413,7 +399,6 @@ class General(QWidget):
             self.viewer,
             self.label_layers,
             self.image_file_extension,
-            memory=memory,
         )
 
     def add_new_region(self):
@@ -421,7 +406,7 @@ class General(QWidget):
         add_new_region_layer(
             self.viewer,
             self.label_layers,
-            self.registered_image,
+            self.base_layer.data,
             self.brush_size,
             self.num_colors,
         )
@@ -430,10 +415,9 @@ class General(QWidget):
         print("Running region analysis")
         worker = region_analysis(
             self.label_layers,
-            self.structures_df,
+            self.atlas_layer.data,
+            self.atlas,
             self.paths.regions_directory,
-            self.paths.annotations,
-            self.paths.hemispheres,
             output_csv_file=self.paths.region_summary_csv,
             volumes=self.calculate_volumes_checkbox.isChecked(),
             summarise=self.summarise_volumes_checkbox.isChecked(),
@@ -441,7 +425,7 @@ class General(QWidget):
         worker.start()
 
     def initialise_brainrender(self):
-        self.scene = Scene(add_root=True)
+        self.scene = Scene(add_root=True, atlas=self.atlas.atlas_name)
         self.splines = None
         self.available_meshes = [""] + list(self.atlas.lookup_df["acronym"])
 
@@ -449,27 +433,21 @@ class General(QWidget):
         print("Closing viewer and viewing in brainrender.")
         QApplication.closeAllWindows()
         view_in_brainrender(
-            self.scene,
             self.splines,
             self.paths.regions_directory,
             alpha=self.region_alpha.value(),
             shading=str(self.shading.currentText()),
-            region_to_add=str(self.region_to_render.currentText()),
+            regions_to_add=str(self.region_to_render.currentText()),
             region_alpha=self.structure_alpha.value(),
         )
 
     def save(self):
         print("Saving")
         worker = save_all(
-            self.viewer,
             self.paths.regions_directory,
             self.paths.tracks_directory,
             self.label_layers,
             self.track_layers,
-            self.paths.downsampled_image,
-            self.x_scaling,
-            self.y_scaling,
-            self.z_scaling,
             track_file_extension=self.track_file_extension,
         )
         worker.start()

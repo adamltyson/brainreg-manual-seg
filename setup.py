@@ -12,14 +12,16 @@ requirements = [
     "napari[pyqt5]",
     "brainrender",
     "imlib >= 0.0.26",
-    "brainio >= 0.0.19",
     "dask >= 2.15.0",
+    "bg-brainrender-gui",
+    "napari-brainreg",
+    "napari-brainreg-standard",
 ]
 
 
 setup(
     name="brainreg-manual-seg",
-    version="0.0.1",
+    version="0.0.2",
     description="Manual segmentation of 3D brain structures in a common anatomical space",
     long_description=long_description,
     long_description_content_type="text/markdown",

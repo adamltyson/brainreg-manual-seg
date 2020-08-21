@@ -171,9 +171,6 @@ def summarise_single_brain_region(
         if data.sum() == 0:
             return
 
-    # swap data back to original orientation from napari orientation
-    data = np.swapaxes(data, 2, 0)
-
     regions_table = regionprops_table(data, properties=properties_to_fetch)
     df = pd.DataFrame.from_dict(regions_table)
     df.insert(0, "Region", label_layer.name)

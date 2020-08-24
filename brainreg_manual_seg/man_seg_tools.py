@@ -6,13 +6,13 @@ import pandas as pd
 from glob import glob
 from pathlib import Path
 from skimage.measure import regionprops_table
-from vedo import Spline
 
 from imlib.pandas.misc import initialise_df
 from imlib.general.list import unique_elements_lists
 from imlib.general.pathlib import append_to_pathlib_stem
 
 from skimage import measure
+from scipy.interpolate import splprep, splev
 
 
 def convert_obj_to_br(verts, faces, voxel_size):
@@ -441,6 +441,38 @@ def save_single_track_layer(
     cells.to_hdf(output_filename, key="df", mode="w")
 
 
+def spline_fit(points, smoothing=0.2, k=3, n_points=100):
+    """ Given an input set of 2/3D points, returns a new set of points
+        representing the spline interpolation
+        Parameters
+        ----------
+        points : np.ndarray
+            2/3D array of points defining a path
+        smoothing : float
+            Smoothing factor
+        k : int
+            Spline degree
+        n_points : int
+            How many points used to define the resulting interpolated path
+        Returns
+        ----------
+        new_points : np.ndarray
+            Points defining the interpolation
+    """
+
+    # scale smoothing to the spread of the points
+    max_range = max(np.max(points, axis=0) - np.min(points, axis=0))
+    smoothing *= max_range
+
+    # calculate bspline representation
+    tck, _ = splprep(points.T, s=smoothing, k=k)
+
+    # evaluate bspline
+    spline_fit_points = splev(np.linspace(0, 1, n_points), tck)
+
+    return np.array(spline_fit_points).T
+
+
 def analyse_track(
     track_layer, spline_points=100, fit_degree=3, spline_smoothing=0.05,
 ):
@@ -452,15 +484,14 @@ def analyse_track(
     :param spline_points: How many points define the spline
     :param fit_degree: spline fit degree
     :param spline_smoothing: spline fit smoothing
-    :return:
-        spline: vedo spline object
+    :return: numpy array defining the interpolation
     """
 
-    spline = Spline(
+    spline = spline_fit(
         track_layer.data,
-        smooth=spline_smoothing,
-        degree=fit_degree,
-        res=spline_points,
+        smoothing=spline_smoothing,
+        k=fit_degree,
+        n_points=spline_points,
     )
 
     return spline
@@ -472,14 +503,14 @@ def analyse_track_anatomy(atlas, spline, file_path, verbose=True):
     "segment" is in, and save to csv.
 
     :param scene: brainrender scene object
-    :param spline: vtkplotter spline object
+    :param spline: numpy array defining the spline interpolation
     :param file_path: path to save the results to
     :param bool verbose: Whether to print the progress
     """
     if verbose:
         print("Determining the brain region for each segment of the spline")
     spline_regions = []
-    for p in spline.points().tolist():
+    for p in spline.tolist():
         try:
             spline_regions.append(
                 atlas.structures[atlas.structure_from_coords(p)]

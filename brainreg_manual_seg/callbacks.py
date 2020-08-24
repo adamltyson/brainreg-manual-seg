@@ -46,7 +46,7 @@ def track_analysis(
             analyse_track_anatomy(atlas, spline, summary_csv_file)
 
         viewer.add_points(
-            spline.points(),
+            spline,
             size=napari_spline_size,
             edge_color="cyan",
             face_color="cyan",

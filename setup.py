@@ -12,8 +12,6 @@ requirements = [
     "napari[pyqt5]",
     "imlib >= 0.0.26",
     "dask >= 2.15.0",
-    "brainrender",
-    "bg-brainrender-gui",
     "napari-brainreg",
 ]
 

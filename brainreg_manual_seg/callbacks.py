@@ -16,17 +16,13 @@ from brainreg_manual_seg.man_seg_tools import (
 
 def track_analysis(
     viewer,
-    scene,
     atlas,
     tracks_directory,
     track_layers,
     napari_spline_size,
-    add_surface_to_points=True,
     spline_points=100,
     fit_degree=3,
     spline_smoothing=0.05,
-    point_size=30,
-    spline_size=10,
     summarise_track=True,
 ):
     tracks_directory.mkdir(parents=True, exist_ok=True)
@@ -38,15 +34,11 @@ def track_analysis(
     splines = []
 
     for track_layer in track_layers:
-        scene, spline = analyse_track(
-            scene,
+        spline = analyse_track(
             track_layer,
-            add_surface_to_points=add_surface_to_points,
             spline_points=spline_points,
             fit_degree=fit_degree,
             spline_smoothing=spline_smoothing,
-            point_radius=point_size,
-            spline_radius=spline_size,
         )
         splines.append(spline)
         if summarise_track:
@@ -63,7 +55,7 @@ def track_analysis(
             name=track_layer.name + "_fit",
         )
 
-    return scene, splines
+    return splines
 
 
 @thread_worker

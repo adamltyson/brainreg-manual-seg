@@ -6,7 +6,7 @@ import pandas as pd
 from glob import glob
 from pathlib import Path
 from skimage.measure import regionprops_table
-from vedo import mesh, Spheres, Spline
+from vedo import Spline
 
 from imlib.pandas.misc import initialise_df
 from imlib.general.list import unique_elements_lists
@@ -442,13 +442,7 @@ def save_single_track_layer(
 
 
 def analyse_track(
-    scene,
-    track_layer,
-    spline_points=100,
-    fit_degree=3,
-    spline_smoothing=0.05,
-    point_radius=30,
-    spline_radius=10,
+    track_layer, spline_points=100, fit_degree=3, spline_smoothing=0.05,
 ):
     """
     Given a file of points, fit a spline function, and add to a brainrender
@@ -458,42 +452,18 @@ def analyse_track(
     :param spline_points: How many points define the spline
     :param fit_degree: spline fit degree
     :param spline_smoothing: spline fit smoothing
-    :param point_radius: size of the points in the brainrender scene
-    :param spline_radius: size of the rendered spline in the brainrender
-    scene
     :return:
-        scene: brainrender scene with the surface point added.
         spline: vedo spline object
     """
 
-    points = track_layer.data.astype(np.int16)
-    points = pd.DataFrame(points)
-
-    points.columns = ["x", "y", "z"]
-    scene.add_cells(
-        points,
-        color_by_region=True,
-        res=12,
-        radius=point_radius,
-        verbose=False,
-    )
-    points = np.array(points)
-
-    far_point = np.expand_dims(points[-1], axis=0)
-    scene.add_actor(Spheres(far_point, r=point_radius).color("n"))
-
-    spline = (
-        Spline(
-            points,
-            smooth=spline_smoothing,
-            degree=fit_degree,
-            res=spline_points,
-        )
-        .pointSize(spline_radius)
-        .color("n")
+    spline = Spline(
+        track_layer.data,
+        smooth=spline_smoothing,
+        degree=fit_degree,
+        res=spline_points,
     )
 
-    return scene, spline
+    return spline
 
 
 def analyse_track_anatomy(atlas, spline, file_path, verbose=True):

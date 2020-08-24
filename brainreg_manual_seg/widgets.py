@@ -4,7 +4,6 @@ from qtpy import QtCore
 from pathlib import Path
 from glob import glob
 from scipy.spatial import cKDTree
-from brainrender.scene import Scene
 
 from brainreg_manual_seg.paths import Paths
 
@@ -309,7 +308,6 @@ class General(QWidget):
                 )
         self.track_panel.setVisible(True)
         self.region_panel.setVisible(True)
-        self.scene = Scene(add_root=True, atlas=self.atlas.atlas_name)
         self.splines = None
 
     def add_track(self):
@@ -334,19 +332,15 @@ class General(QWidget):
     def run_track_analysis(self):
         print("Running track analysis")
         try:
-            self.scene, self.splines = track_analysis(
+            self.splines = track_analysis(
                 self.viewer,
-                self.scene,
                 self.atlas,
                 self.paths.tracks_directory,
                 self.track_layers,
                 self.spline_size,
-                add_surface_to_points=self.add_surface_point_checkbox.isChecked(),
                 spline_points=self.spline_points.value(),
                 fit_degree=self.fit_degree.value(),
                 spline_smoothing=self.spline_smoothing.value(),
-                point_size=self.point_size,
-                spline_size=self.spline_size,
                 summarise_track=self.summarise_track_checkbox.isChecked(),
             )
             print("Finished!\n")

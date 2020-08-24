@@ -443,7 +443,7 @@ def save_single_track_layer(
 
 def analyse_track(
     scene,
-    points_file,
+    track_layer,
     add_surface_to_points=True,
     spline_points=100,
     fit_degree=3,
@@ -456,7 +456,7 @@ def analyse_track(
     Given a file of points, fit a spline function, and add to a brainrender
      scene.
     :param scene: brainrender scene object
-    :param points_file:
+    :param track_layer: napari points layer
     :param bool add_surface_to_points: Add the closest part of the brain
     surface to the list of points
     :param spline_points: How many points define the spline
@@ -470,7 +470,11 @@ def analyse_track(
         scene: brainrender scene with the surface point added.
         spline: vedo spline object
     """
-    points = pd.read_hdf(points_file)
+
+    points = track_layer.data.astype(np.int16)
+    points = pd.DataFrame(points)
+
+    points.columns = ["x", "y", "z"]
     scene.add_cells(
         points,
         color_by_region=True,

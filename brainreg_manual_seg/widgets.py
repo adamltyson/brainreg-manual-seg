@@ -313,6 +313,7 @@ class General(QWidget):
             self.scene,
             self.atlas,
             self.paths.tracks_directory,
+            self.track_layers,
             self.spline_size,
             add_surface_to_points=self.add_surface_point_checkbox.isChecked(),
             spline_points=self.spline_points.value(),

@@ -17,6 +17,7 @@ def track_analysis(
     scene,
     atlas,
     tracks_directory,
+    track_layers,
     napari_spline_size,
     add_surface_to_points=True,
     spline_points=100,
@@ -25,19 +26,18 @@ def track_analysis(
     point_size=30,
     spline_size=10,
     summarise_track=True,
-    track_file_extension=".h5",
 ):
+    tracks_directory.mkdir(parents=True, exist_ok=True)
 
     print(
         f"Fitting splines with {spline_points} segments, of degree "
         f"'{fit_degree}' to the points"
     )
-    track_files = glob(str(tracks_directory) + "/*" + track_file_extension)
     splines = []
-    for track_file in track_files:
+    for track_layer in track_layers:
         scene, spline = analyse_track(
             scene,
-            track_file,
+            track_layer,
             add_surface_to_points=add_surface_to_points,
             spline_points=spline_points,
             fit_degree=fit_degree,
@@ -47,7 +47,7 @@ def track_analysis(
         )
         splines.append(spline)
         if summarise_track:
-            summary_csv_file = Path(track_file).with_suffix(".csv")
+            summary_csv_file = tracks_directory / (track_layer.name + ".csv")
             analyse_track_anatomy(atlas, spline, summary_csv_file)
 
         viewer.add_points(
@@ -57,7 +57,7 @@ def track_analysis(
             face_color="cyan",
             blending="additive",
             opacity=0.7,
-            name=Path(track_file).stem + "_fit",
+            name=track_layer.name + "_fit",
         )
 
     return scene, splines

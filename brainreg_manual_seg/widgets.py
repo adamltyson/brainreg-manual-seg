@@ -315,41 +315,47 @@ class General(QWidget):
         add_new_track_layer(self.viewer, self.track_layers, self.point_size)
 
     def add_surface_points(self):
-        print("Adding surface points")
-        if self.tree is None:
-            self.create_brain_surface_tree()
+        if self.track_layers:
+            print("Adding surface points")
+            if self.tree is None:
+                self.create_brain_surface_tree()
 
-        for track_layer in self.track_layers:
-            _, index = self.tree.query(track_layer.data[0])
-            surface_point = self.tree.data[index]
-            track_layer.data = np.vstack((surface_point, track_layer.data))
-        print("Finished!\n")
+            for track_layer in self.track_layers:
+                _, index = self.tree.query(track_layer.data[0])
+                surface_point = self.tree.data[index]
+                track_layer.data = np.vstack((surface_point, track_layer.data))
+            print("Finished!\n")
+        else:
+            print("No tracks found.")
 
     def create_brain_surface_tree(self):
         list_zeros = np.argwhere((self.atlas_layer.data == 0))
         self.tree = cKDTree(list_zeros)
 
     def run_track_analysis(self):
-        print("Running track analysis")
-        try:
-            self.splines = track_analysis(
-                self.viewer,
-                self.atlas,
-                self.paths.tracks_directory,
-                self.track_layers,
-                self.spline_size,
-                spline_points=self.spline_points.value(),
-                fit_degree=self.fit_degree.value(),
-                spline_smoothing=self.spline_smoothing.value(),
-                summarise_track=self.summarise_track_checkbox.isChecked(),
-            )
-            print("Finished!\n")
-        except TypeError:
-            print(
-                "The number of points must be greater "
-                "than the fit degree. \n"
-                "Please add points, or reduce the fit degree."
-            )
+        if self.track_layers:
+            print("Running track analysis")
+            try:
+                self.splines = track_analysis(
+                    self.viewer,
+                    self.atlas,
+                    self.paths.tracks_directory,
+                    self.track_layers,
+                    self.spline_size,
+                    spline_points=self.spline_points.value(),
+                    fit_degree=self.fit_degree.value(),
+                    spline_smoothing=self.spline_smoothing.value(),
+                    summarise_track=self.summarise_track_checkbox.isChecked(),
+                )
+                print("Finished!\n")
+            except TypeError:
+                print(
+                    "The number of points must be greater "
+                    "than the fit degree. \n"
+                    "Please add points, or reduce the fit degree."
+                )
+        else:
+            print("No tracks found.")
 
     def initialise_region_segmentation(self):
         add_existing_region_segmentation(
@@ -370,17 +376,20 @@ class General(QWidget):
         )
 
     def run_region_analysis(self):
-        print("Running region analysis")
-        worker = region_analysis(
-            self.label_layers,
-            self.atlas_layer.data,
-            self.atlas,
-            self.paths.regions_directory,
-            output_csv_file=self.paths.region_summary_csv,
-            volumes=self.calculate_volumes_checkbox.isChecked(),
-            summarise=self.summarise_volumes_checkbox.isChecked(),
-        )
-        worker.start()
+        if self.label_layers:
+            print("Running region analysis")
+            worker = region_analysis(
+                self.label_layers,
+                self.atlas_layer.data,
+                self.atlas,
+                self.paths.regions_directory,
+                output_csv_file=self.paths.region_summary_csv,
+                volumes=self.calculate_volumes_checkbox.isChecked(),
+                summarise=self.summarise_volumes_checkbox.isChecked(),
+            )
+            worker.start()
+        else:
+            print("No regions found")
 
     def save(self):
         if self.label_layers or self.track_layers:

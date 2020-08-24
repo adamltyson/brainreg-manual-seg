@@ -235,22 +235,27 @@ class General(QWidget):
             self, "Select brainreg directory", options=options,
         )
         if self.directory != "":
-            self.directory = Path(self.directory)
-            if len(self.viewer.layers) != 0:
-                # remove old layers
-                for layer in list(self.viewer.layers):
-                    self.viewer.layers.remove(layer)
-            if self.common_coordinate_space_checkbox.isChecked():
-                plugin = "brainreg_standard"
-            else:
-                plugin = "brainreg"
-            self.viewer.open(str(self.directory), plugin=plugin)
-            self.paths = Paths(
-                self.directory,
-                standard_space=self.common_coordinate_space_checkbox.isChecked(),
-            )
+            try:
+                self.directory = Path(self.directory)
+                if len(self.viewer.layers) != 0:
+                    # remove old layers
+                    for layer in list(self.viewer.layers):
+                        self.viewer.layers.remove(layer)
+                if self.common_coordinate_space_checkbox.isChecked():
+                    plugin = "brainreg_standard"
+                else:
+                    plugin = "brainreg"
+                self.viewer.open(str(self.directory), plugin=plugin)
+                self.paths = Paths(
+                    self.directory,
+                    standard_space=
+                    self.common_coordinate_space_checkbox.isChecked(),
+                )
 
-            self.initialise_layers()
+                self.initialise_layers()
+            except ValueError:
+                print(f"The directory ({self.directory}) does not appear to be "
+                      f"a brainreg directory, please try again.")
 
     def initialise_layers(self):
         # for consistency, don't load this

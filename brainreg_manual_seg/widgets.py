@@ -262,7 +262,7 @@ class General(QWidget):
 
         self.base_layer = self.viewer.layers["Registered image"]
         self.metadata = self.base_layer.metadata
-        self.atlas = BrainGlobeAtlas(self.metadata["atlas"])
+        self.atlas = self.metadata["atlas_class"]
         self.atlas_layer = self.viewer.layers[self.metadata["atlas"]]
 
         self.reset_variables()

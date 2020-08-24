@@ -1,6 +1,8 @@
+import numpy as np
 from glob import glob
 from pathlib import Path
 from napari.qt.threading import thread_worker
+from scipy.spatial import cKDTree
 
 from brainreg_manual_seg.man_seg_tools import (
     save_regions_to_file,
@@ -34,6 +36,7 @@ def track_analysis(
         f"'{fit_degree}' to the points"
     )
     splines = []
+
     for track_layer in track_layers:
         scene, spline = analyse_track(
             scene,

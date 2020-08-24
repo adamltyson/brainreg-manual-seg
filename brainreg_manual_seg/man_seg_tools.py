@@ -444,28 +444,23 @@ def save_single_track_layer(
 def analyse_track(
     scene,
     track_layer,
-    add_surface_to_points=True,
     spline_points=100,
     fit_degree=3,
     spline_smoothing=0.05,
     point_radius=30,
     spline_radius=10,
-    verbose=True,
 ):
     """
     Given a file of points, fit a spline function, and add to a brainrender
      scene.
     :param scene: brainrender scene object
     :param track_layer: napari points layer
-    :param bool add_surface_to_points: Add the closest part of the brain
-    surface to the list of points
     :param spline_points: How many points define the spline
     :param fit_degree: spline fit degree
     :param spline_smoothing: spline fit smoothing
     :param point_radius: size of the points in the brainrender scene
     :param spline_radius: size of the rendered spline in the brainrender
     scene
-    :param bool verbose: Whether to print the progress
     :return:
         scene: brainrender scene with the surface point added.
         spline: vedo spline object
@@ -484,11 +479,6 @@ def analyse_track(
     )
     points = np.array(points)
 
-    if add_surface_to_points:
-        scene, points = add_surface_point_to_points(
-            scene, points, point_radius, verbose=verbose
-        )
-
     far_point = np.expand_dims(points[-1], axis=0)
     scene.add_actor(Spheres(far_point, r=point_radius).color("n"))
 
@@ -504,34 +494,6 @@ def analyse_track(
     )
 
     return scene, spline
-
-
-def add_surface_point_to_points(
-    scene, points, point_radius, color="n", verbose=True
-):
-    """
-    Adds the closest part of the brain surface to the list of points. Returns
-    the brainrender scene with the point added, and the point added to the
-    list of points
-    :param scene: brainrender scene object
-    :param points: List of points
-    :param point_radius: Radius of the point when displayed
-    :param bool verbose: Whether to print the progress
-    :return:
-        scene: brainrender scene with the surface point added.
-        points: list of points with the surface point added.
-    """
-    if verbose:
-        print(
-            "Finding the closest point on the brain surface to the first point"
-        )
-    root_mesh = mesh.Mesh(scene.root)
-    surface_intersection = np.expand_dims(
-        root_mesh.closestPoint(points[0]), axis=0
-    )
-    points = np.concatenate([surface_intersection, points], axis=0)
-    scene.add_actor(Spheres(surface_intersection, r=point_radius).color(color))
-    return scene, points
 
 
 def analyse_track_anatomy(atlas, spline, file_path, verbose=True):

@@ -3,7 +3,7 @@ import numpy as np
 from qtpy import QtCore
 from pathlib import Path
 from glob import glob
-
+from scipy.spatial import cKDTree
 from brainrender.scene import Scene
 
 from brainreg_manual_seg.paths import Paths
@@ -76,6 +76,7 @@ class General(QWidget):
 
         # track variables
         self.track_layers = []
+        self.tree = None
         self.track_file_extension = track_file_extension
         self.spline_points_default = spline_points_default
         self.spline_smoothing_default = spline_smoothing_default
@@ -139,10 +140,13 @@ class General(QWidget):
         track_layout = QGridLayout()
 
         add_button(
-            "Add track", track_layout, self.add_track, 5, 0,
+            "Add track", track_layout, self.add_track, 6, 0,
         )
         add_button(
-            "Trace tracks", track_layout, self.run_track_analysis, 5, 1,
+            "Trace tracks", track_layout, self.run_track_analysis, 6, 1,
+        )
+        add_button(
+            "Add surface points", track_layout, self.add_surface_points, 5, 1,
         )
 
         self.summarise_track_checkbox = add_checkbox(
@@ -248,14 +252,15 @@ class General(QWidget):
                 self.viewer.open(str(self.directory), plugin=plugin)
                 self.paths = Paths(
                     self.directory,
-                    standard_space=
-                    self.common_coordinate_space_checkbox.isChecked(),
+                    standard_space=self.common_coordinate_space_checkbox.isChecked(),
                 )
 
                 self.initialise_layers()
             except ValueError:
-                print(f"The directory ({self.directory}) does not appear to be "
-                      f"a brainreg directory, please try again.")
+                print(
+                    f"The directory ({self.directory}) does not appear to be "
+                    f"a brainreg directory, please try again."
+                )
 
     def initialise_layers(self):
         # for consistency, don't load this
@@ -311,6 +316,21 @@ class General(QWidget):
         print("Adding a new track\n")
         add_new_track_layer(self.viewer, self.track_layers, self.point_size)
 
+    def add_surface_points(self):
+        print("Adding surface points")
+        if self.tree is None:
+            self.create_brain_surface_tree()
+
+        for track_layer in self.track_layers:
+            _, index = self.tree.query(track_layer.data[0])
+            surface_point = self.tree.data[index]
+            track_layer.data = np.vstack((surface_point, track_layer.data))
+        print("Finished!\n")
+
+    def create_brain_surface_tree(self):
+        list_zeros = np.argwhere((self.atlas_layer.data == 0))
+        self.tree = cKDTree(list_zeros)
+
     def run_track_analysis(self):
         print("Running track analysis")
         try:
@@ -331,9 +351,11 @@ class General(QWidget):
             )
             print("Finished!\n")
         except TypeError:
-            print("The number of points must be greater "
-                  "than the fit degree. \n"
-                  "Please add points, or reduce the fit degree.")
+            print(
+                "The number of points must be greater "
+                "than the fit degree. \n"
+                "Please add points, or reduce the fit degree."
+            )
 
     def initialise_region_segmentation(self):
         add_existing_region_segmentation(

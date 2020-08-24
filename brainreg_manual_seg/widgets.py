@@ -322,7 +322,6 @@ class General(QWidget):
             point_size=self.point_size,
             spline_size=self.spline_size,
             summarise_track=self.summarise_track_checkbox.isChecked(),
-            track_file_extension=self.track_file_extension,
         )
         print("Finished!\n")
 

@@ -276,7 +276,6 @@ def analyse_region_brain_areas(
 
     masked_annotations = data.astype(bool) * atlas_layer_data
 
-    # TODO: don't hardcode hemisphere value. Get from atlas config
     annotations_left, annotations_right = lateralise_atlas(
         masked_annotations,
         atlas.hemispheres,

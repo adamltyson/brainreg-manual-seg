@@ -313,22 +313,27 @@ class General(QWidget):
 
     def run_track_analysis(self):
         print("Running track analysis")
-        self.scene, self.splines = track_analysis(
-            self.viewer,
-            self.scene,
-            self.atlas,
-            self.paths.tracks_directory,
-            self.track_layers,
-            self.spline_size,
-            add_surface_to_points=self.add_surface_point_checkbox.isChecked(),
-            spline_points=self.spline_points.value(),
-            fit_degree=self.fit_degree.value(),
-            spline_smoothing=self.spline_smoothing.value(),
-            point_size=self.point_size,
-            spline_size=self.spline_size,
-            summarise_track=self.summarise_track_checkbox.isChecked(),
-        )
-        print("Finished!\n")
+        try:
+            self.scene, self.splines = track_analysis(
+                self.viewer,
+                self.scene,
+                self.atlas,
+                self.paths.tracks_directory,
+                self.track_layers,
+                self.spline_size,
+                add_surface_to_points=self.add_surface_point_checkbox.isChecked(),
+                spline_points=self.spline_points.value(),
+                fit_degree=self.fit_degree.value(),
+                spline_smoothing=self.spline_smoothing.value(),
+                point_size=self.point_size,
+                spline_size=self.spline_size,
+                summarise_track=self.summarise_track_checkbox.isChecked(),
+            )
+            print("Finished!\n")
+        except TypeError:
+            print("The number of points must be greater "
+                  "than the fit degree. \n"
+                  "Please add points, or reduce the fit degree.")
 
     def initialise_region_segmentation(self):
         add_existing_region_segmentation(

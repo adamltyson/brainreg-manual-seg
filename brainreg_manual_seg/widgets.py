@@ -33,7 +33,6 @@ from qtpy.QtWidgets import (
     QGroupBox,
     QWidget,
 )
-from bg_atlasapi.bg_atlas import BrainGlobeAtlas
 
 
 def display_brain_region_name(layer, structures):

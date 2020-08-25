@@ -98,8 +98,6 @@ class ManualSegmentationWidget(QWidget):
         # atlas variables
         self.region_labels = []
 
-        self.common_coordinate_space_default = True
-
         self.boundaries_string = boundaries_string
         self.setup_layout()
 
@@ -165,10 +163,10 @@ class ManualSegmentationWidget(QWidget):
         self.load_data_panel.setVisible(True)
 
     def setup_atlas(self):
-        self.set_output_directory()
         self.atlas_menu, self.atlas_menu_label = self.add_atlas_menu(
             self.load_data_layout
         )
+        self.set_output_directory()
 
     def add_atlas_menu(self, layout):
         list_of_atlasses = [""]
@@ -184,6 +182,8 @@ class ManualSegmentationWidget(QWidget):
             label_stack=True,
             callback=self.initialise_atlas,
         )
+        atlas_menu.setVisible(False)
+        atlas_menu_label.setVisible(False)
         return atlas_menu, atlas_menu_label
 
     def add_track_panel(self, row):
@@ -313,6 +313,8 @@ class ManualSegmentationWidget(QWidget):
         )
         if self.directory != "":
             self.directory = Path(self.directory)
+            self.atlas_menu.setVisible(True)
+            self.atlas_menu_label.setVisible(True)
 
     def load_brainreg_directory_sample(self):
         self.load_brainreg_directory(standard_space=False)

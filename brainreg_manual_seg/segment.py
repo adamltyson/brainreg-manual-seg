@@ -101,26 +101,26 @@ class ManualSegmentationWidget(QWidget):
         self.layout = QGridLayout()
         self.layout.setAlignment(QtCore.Qt.AlignTop)
         self.layout.setSpacing(4)
-        self.add_loading_panel()
+
+        self.add_loading_panel(1)
+        self.add_track_panel(2)
+        self.add_region_panel(3)
 
         self.save_button = add_button(
-            "Save", self.layout, self.save, 7, 1, visibility=False
+            "Save", self.layout, self.save, 4, 1, visibility=False
         )
 
         self.status_label = QLabel()
         self.status_label.setText("Ready")
+        self.layout.addWidget(self.status_label, 5, 0)
 
-        self.layout.addWidget(self.status_label, 8, 0)
         self.layout.setAlignment(QtCore.Qt.AlignTop)
         self.layout.setSpacing(4)
         self.setLayout(self.layout)
 
-        self.add_track_panel(self.layout)
-        self.add_region_panel(self.layout)
-
         self.setLayout(self.layout)
 
-    def add_loading_panel(self):
+    def add_loading_panel(self, row):
         self.load_data_panel = QGroupBox()
         self.load_data_layout = QGridLayout()
 
@@ -153,7 +153,7 @@ class ManualSegmentationWidget(QWidget):
 
         self.load_data_layout.setColumnMinimumWidth(1, 150)
         self.load_data_panel.setLayout(self.load_data_layout)
-        self.layout.addWidget(self.load_data_panel, 3, 0, 1, 2)
+        self.layout.addWidget(self.load_data_panel, row, 0, 1, 2)
 
         self.load_data_panel.setVisible(True)
 
@@ -179,7 +179,7 @@ class ManualSegmentationWidget(QWidget):
         )
         return atlas_menu, atlas_menu_label
 
-    def add_track_panel(self, layout):
+    def add_track_panel(self, row):
         self.track_panel = QGroupBox("Track tracing")
         track_layout = QGridLayout()
 
@@ -229,13 +229,11 @@ class ManualSegmentationWidget(QWidget):
 
         track_layout.setColumnMinimumWidth(1, 150)
         self.track_panel.setLayout(track_layout)
-        layout.addWidget(self.track_panel, 3, 0, 1, 2)
+        self.layout.addWidget(self.track_panel, row, 0, 1, 2)
 
-        layout.setAlignment(QtCore.Qt.AlignTop)
-        layout.setSpacing(4)
         self.track_panel.setVisible(False)
 
-    def add_region_panel(self, layout):
+    def add_region_panel(self, row):
         self.region_panel = QGroupBox("Region analysis")
         region_layout = QGridLayout()
 
@@ -262,10 +260,8 @@ class ManualSegmentationWidget(QWidget):
 
         region_layout.setColumnMinimumWidth(1, 150)
         self.region_panel.setLayout(region_layout)
-        layout.addWidget(self.region_panel, 5, 0, 1, 2)
+        self.layout.addWidget(self.region_panel, row, 0, 1, 2)
 
-        layout.setAlignment(QtCore.Qt.AlignTop)
-        layout.setSpacing(4)
         self.region_panel.setVisible(False)
 
     def initialise_atlas(self, i):

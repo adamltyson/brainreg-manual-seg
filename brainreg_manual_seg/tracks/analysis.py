@@ -21,6 +21,7 @@ def track_analysis(
         f"'{fit_degree}' to the points"
     )
     splines = []
+    spline_names = []
 
     for track_layer in track_layers:
         spline = spline_fit(
@@ -44,7 +45,8 @@ def track_analysis(
             name=track_layer.name + "_fit",
         )
 
-    return splines
+        spline_names.append(track_layer.name)
+    return splines, spline_names
 
 
 def analyse_track_anatomy(atlas, spline, file_path, verbose=True):

@@ -34,7 +34,7 @@ from brainreg_manual_seg.regions.IO import (
 )
 
 from brainreg_manual_seg.tracks.analysis import track_analysis
-from brainreg_manual_seg.tracks.IO import save_track_layers
+from brainreg_manual_seg.tracks.IO import save_track_layers, export_splines
 from brainreg_manual_seg.atlas.utils import (
     get_available_atlases,
     display_brain_region_name,
@@ -455,7 +455,7 @@ class ManualSegmentationWidget(QWidget):
         if self.track_layers:
             print("Running track analysis")
             try:
-                self.splines = track_analysis(
+                self.splines, self.spline_names = track_analysis(
                     self.viewer,
                     self.atlas,
                     self.paths.tracks_directory,
@@ -524,12 +524,15 @@ class ManualSegmentationWidget(QWidget):
 
     def export_to_brainrender(self):
         print("Exporting")
+        max_axis_2 = self.base_layer.shape[2]
         worker = export_all(
             self.paths.regions_directory,
             self.paths.tracks_directory,
             self.label_layers,
-            self.track_layers,
-            track_file_extension=self.track_file_extension,
+            self.splines,
+            self.spline_names,
+            self.atlas.resolution[0],
+            max_axis_2,
         )
         worker.start()
 
@@ -539,18 +542,18 @@ def export_all(
     regions_directory,
     tracks_directory,
     label_layers,
-    points_layers,
-    track_file_extension=".h5",
+    splines,
+    spline_names,
+    resolution,
+    max_axis_2,
 ):
     if label_layers:
         export_label_layers(regions_directory, label_layers)
 
-    # if points_layers:
-    #     save_track_layers(
-    #         tracks_directory,
-    #         points_layers,
-    #         track_file_extension=track_file_extension,
-    #     )
+    if splines:
+        export_splines(
+            tracks_directory, splines, spline_names, resolution, max_axis_2
+        )
     print("Finished!\n")
 
 

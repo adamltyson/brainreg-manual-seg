@@ -9,93 +9,9 @@ from skimage.measure import regionprops_table
 
 from imlib.pandas.misc import initialise_df
 from imlib.general.list import unique_elements_lists
-from imlib.general.pathlib import append_to_pathlib_stem
 
-from skimage import measure
-from scipy.interpolate import splprep, splev
-
-
-def convert_obj_to_br(verts, faces, voxel_size):
-    if voxel_size != 1:
-        verts = verts * voxel_size
-
-    faces = faces + 1
-    return verts, faces
-
-
-def extract_and_save_object(
-    image, output_file_name, voxel_size, threshold=0, step_size=1
-):
-    verts, faces, normals, values = measure.marching_cubes_lewiner(
-        image, threshold, step_size=step_size
-    )
-    verts, faces = convert_obj_to_br(verts, faces, voxel_size)
-    marching_cubes_to_obj(
-        (verts, faces, normals, values), str(output_file_name)
-    )
-
-
-def marching_cubes_to_obj(marching_cubes_out, output_file):
-    """
-    Saves the output of skimage.measure.marching_cubes as an .obj file
-    :param marching_cubes_out: tuple
-    :param output_file: str
-    """
-
-    verts, faces, normals, _ = marching_cubes_out
-    with open(output_file, "w") as f:
-        for item in verts:
-            f.write(f"v {item[0]} {item[1]} {item[2]}\n")
-        for item in normals:
-            f.write(f"vn {item[0]} {item[1]} {item[2]}\n")
-        for item in faces:
-            f.write(
-                f"f {item[0]}//{item[0]} {item[1]}//{item[1]} "
-                f"{item[2]}//{item[2]}\n"
-            )
-        f.close()
-
-
-def volume_to_vector_array_to_obj_file(
-    image,
-    output_path,
-    voxel_size=50,
-    step_size=1,
-    threshold=0,
-    deal_with_regions_separately=False,
-):
-    # BR is oriented differently
-    image = np.flip(image, axis=2)
-    if deal_with_regions_separately:
-        for label_id in np.unique(image):
-            if label_id != 0:
-                filename = append_to_pathlib_stem(
-                    Path(output_path), "_" + str(label_id)
-                )
-                image = image == label_id
-                extract_and_save_object(
-                    image,
-                    filename,
-                    voxel_size,
-                    threshold=threshold,
-                    step_size=step_size,
-                )
-    else:
-        extract_and_save_object(
-            image,
-            output_path,
-            voxel_size,
-            threshold=threshold,
-            step_size=step_size,
-        )
-
-
-def lateralise_atlas(
-    atlas, hemispheres, left_hemisphere_value=1, right_hemisphere_value=2
-):
-    atlas_left = atlas[hemispheres == left_hemisphere_value]
-    atlas_right = atlas[hemispheres == right_hemisphere_value]
-    return atlas_left, atlas_right
+from brainreg_manual_seg.IO import brainrender_track_to_napari
+from brainreg_manual_seg.atlas.utils import lateralise_atlas_image
 
 
 def add_new_label_layer(
@@ -187,17 +103,6 @@ def add_existing_track_layers(viewer, track_file, point_size):
     return new_points_layer
 
 
-def brainrender_track_to_napari(track_file, max_z):
-    points = pd.read_hdf(track_file)
-    points["x"] = points["x"]
-    points["z"] = points["z"]
-    points["y"] = points["y"]
-
-    points["x"] = max_z - points["x"]
-
-    return points.to_numpy().astype(np.int16)
-
-
 def add_existing_label_layers(
     viewer, label_file, selected_label=1, num_colors=10, brush_size=30,
 ):
@@ -218,38 +123,6 @@ def add_existing_label_layers(
     label_layer.selected_label = selected_label
     label_layer.brush_size = brush_size
     return label_layer
-
-
-def save_regions_to_file(
-    label_layer,
-    destination_directory,
-    ignore_empty=True,
-    obj_ext=".obj",
-    image_extension=".tiff",
-):
-    """
-    Analysed the regions (to see what brain areas they are in) and saves
-    the segmented regions to file (both as .obj and .nii)
-    :param label_layer: napari labels layer (with segmented regions)
-    :param destination_directory: Where to save files to
-    :param ignore_empty: If True, don't attempt to save empty images
-    :param obj_ext: File extension for the obj files
-    :param image_extension: File extension fo the image files
-    """
-    data = label_layer.data
-    if ignore_empty:
-        if data.sum() == 0:
-            return
-
-    name = label_layer.name
-
-    filename = destination_directory / (name + obj_ext)
-    volume_to_vector_array_to_obj_file(
-        data, filename,
-    )
-
-    filename = destination_directory / (name + image_extension)
-    imio.to_tiff(data.astype(np.int16), filename)
 
 
 def analyse_region_brain_areas(
@@ -276,7 +149,7 @@ def analyse_region_brain_areas(
 
     masked_annotations = data.astype(bool) * atlas_layer_data
 
-    annotations_left, annotations_right = lateralise_atlas(
+    annotations_left, annotations_right = lateralise_atlas_image(
         masked_annotations,
         atlas.hemispheres,
         left_hemisphere_value=atlas.left_hemisphere_value,
@@ -408,93 +281,6 @@ def get_volume_in_hemisphere(
         percentage = 0
 
     return volume, percentage
-
-
-def convert_and_save_points(
-    points_layers, output_directory, track_file_extension=".h5",
-):
-    """
-    Converts the points from the napari format (in image space) to brainrender
-    (in atlas space)
-    :param points_layers: list of points layers
-    :param output_directory: path to save points to
-    """
-
-    output_directory.mkdir(parents=True, exist_ok=True)
-
-    for points_layer in points_layers:
-        save_single_track_layer(
-            points_layer,
-            output_directory,
-            track_file_extension=track_file_extension,
-        )
-
-
-def save_single_track_layer(
-    layer, output_directory, track_file_extension=".h5",
-):
-    output_filename = output_directory / (layer.name + track_file_extension)
-    cells = layer.data.astype(np.int16)
-    cells = pd.DataFrame(cells)
-
-    cells.columns = ["x", "y", "z"]
-    cells.to_hdf(output_filename, key="df", mode="w")
-
-
-def spline_fit(points, smoothing=0.2, k=3, n_points=100):
-    """ Given an input set of 2/3D points, returns a new set of points
-        representing the spline interpolation
-        Parameters
-        ----------
-        points : np.ndarray
-            2/3D array of points defining a path
-        smoothing : float
-            Smoothing factor
-        k : int
-            Spline degree
-        n_points : int
-            How many points used to define the resulting interpolated path
-        Returns
-        ----------
-        new_points : np.ndarray
-            Points defining the interpolation
-    """
-
-    # scale smoothing to the spread of the points
-    max_range = max(np.max(points, axis=0) - np.min(points, axis=0))
-    smoothing *= max_range
-
-    # calculate bspline representation
-    tck, _ = splprep(points.T, s=smoothing, k=k)
-
-    # evaluate bspline
-    spline_fit_points = splev(np.linspace(0, 1, n_points), tck)
-
-    return np.array(spline_fit_points).T
-
-
-def analyse_track(
-    track_layer, spline_points=100, fit_degree=3, spline_smoothing=0.05,
-):
-    """
-    Given a file of points, fit a spline function, and add to a brainrender
-     scene.
-    :param scene: brainrender scene object
-    :param track_layer: napari points layer
-    :param spline_points: How many points define the spline
-    :param fit_degree: spline fit degree
-    :param spline_smoothing: spline fit smoothing
-    :return: numpy array defining the interpolation
-    """
-
-    spline = spline_fit(
-        track_layer.data,
-        smoothing=spline_smoothing,
-        k=fit_degree,
-        n_points=spline_points,
-    )
-
-    return spline
 
 
 def analyse_track_anatomy(atlas, spline, file_path, verbose=True):

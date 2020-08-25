@@ -5,15 +5,19 @@ import numpy as np
 from qtpy import QtCore
 from pathlib import Path
 from glob import glob
+from napari.qt.threading import thread_worker
 
 from brainreg_manual_seg.paths import Paths
 
-from brainreg_manual_seg.man_seg_tools import (
+from brainreg_manual_seg.regions.layers import (
     add_existing_region_segmentation,
-    add_existing_track_layers,
-    add_new_track_layer,
     add_new_region_layer,
 )
+from brainreg_manual_seg.tracks.layers import (
+    add_new_track_layer,
+    add_existing_track_layers,
+)
+
 from brainreg_manual_seg.gui_elements import (
     add_button,
     add_checkbox,
@@ -23,13 +27,16 @@ from brainreg_manual_seg.gui_elements import (
 )
 
 from brainreg_manual_seg.regions.analysis import region_analysis
-from brainreg_manual_seg.tracks.analysis import track_analysis
-from brainreg_manual_seg.IO import save_all
 from brainreg_manual_seg.image.utils import create_KDTree_from_image
+from brainreg_manual_seg.regions.IO import save_label_layers
+
+from brainreg_manual_seg.tracks.analysis import track_analysis
+from brainreg_manual_seg.tracks.IO import save_track_layers
 from brainreg_manual_seg.atlas.utils import (
     get_available_atlases,
     display_brain_region_name,
 )
+
 from qtpy.QtWidgets import (
     QLabel,
     QFileDialog,
@@ -269,7 +276,10 @@ class ManualSegmentationWidget(QWidget):
         atlas_name = atlas_string.split(" ")[0].strip()
         atlas = BrainGlobeAtlas(atlas_name)
         self.directory = self.directory / atlas_name
-        self.paths = Paths(self.directory, atlas_space=True,)
+        self.paths = Paths(self.directory, atlas_space=True)
+
+        # raises error
+        # self.remove_existing_data()
 
         self.atlas = atlas
         self.base_layer = self.viewer.add_image(
@@ -325,10 +335,7 @@ class ManualSegmentationWidget(QWidget):
         if self.directory != "":
             try:
                 self.directory = Path(self.directory)
-                if len(self.viewer.layers) != 0:
-                    # remove old layers
-                    for layer in list(self.viewer.layers):
-                        self.viewer.layers.remove(layer)
+                # self.remove_existing_data()
 
                 self.viewer.open(str(self.directory), plugin=plugin)
                 self.paths = Paths(
@@ -341,6 +348,12 @@ class ManualSegmentationWidget(QWidget):
                     f"The directory ({self.directory}) does not appear to be "
                     f"a brainreg directory, please try again."
                 )
+
+    def remove_existing_data(self):
+        if len(self.viewer.layers) != 0:
+            # remove old layers
+            for layer in list(self.viewer.layers):
+                self.viewer.layers.remove(layer)
 
     def initialise_loaded_data(self):
         # for consistency, don't load this
@@ -483,6 +496,26 @@ class ManualSegmentationWidget(QWidget):
                 track_file_extension=self.track_file_extension,
             )
             worker.start()
+
+
+@thread_worker
+def save_all(
+    regions_directory,
+    tracks_directory,
+    label_layers,
+    points_layers,
+    track_file_extension=".h5",
+):
+    if label_layers:
+        save_label_layers(regions_directory, label_layers)
+
+    if points_layers:
+        save_track_layers(
+            tracks_directory,
+            points_layers,
+            track_file_extension=track_file_extension,
+        )
+    print("Finished!\n")
 
 
 def main():

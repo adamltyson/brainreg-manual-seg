@@ -1,4 +1,5 @@
-from brainreg_manual_seg.man_seg_tools import analyse_track_anatomy
+import pandas as pd
+
 from brainreg_manual_seg.tracks.fit import spline_fit
 
 
@@ -44,3 +45,53 @@ def track_analysis(
         )
 
     return splines
+
+
+def analyse_track_anatomy(atlas, spline, file_path, verbose=True):
+    """
+    For a given spline, and brainrender scene, find the brain region that each
+    "segment" is in, and save to csv.
+
+    :param scene: brainrender scene object
+    :param spline: numpy array defining the spline interpolation
+    :param file_path: path to save the results to
+    :param bool verbose: Whether to print the progress
+    """
+    if verbose:
+        print("Determining the brain region for each segment of the spline")
+    spline_regions = []
+    for p in spline.tolist():
+        try:
+            spline_regions.append(
+                atlas.structures[atlas.structure_from_coords(p)]
+            )
+        except KeyError:
+            spline_regions.append(None)
+
+    df = pd.DataFrame(
+        columns=["Position", "Region ID", "Region acronym", "Region name"]
+    )
+    for idx, spline_region in enumerate(spline_regions):
+        if spline_region is None:
+            df = df.append(
+                {
+                    "Position": idx,
+                    "Region ID": "Not found in brain",
+                    "Region acronym": "Not found in brain",
+                    "Region name": "Not found in brain",
+                },
+                ignore_index=True,
+            )
+        else:
+            df = df.append(
+                {
+                    "Position": idx,
+                    "Region ID": spline_region["id"],
+                    "Region acronym": spline_region["acronym"],
+                    "Region name": spline_region["name"],
+                },
+                ignore_index=True,
+            )
+    if verbose:
+        print(f"Saving results to: {file_path}")
+    df.to_csv(file_path, index=False)

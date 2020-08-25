@@ -28,10 +28,13 @@ from brainreg_manual_seg.gui_elements import (
 
 from brainreg_manual_seg.regions.analysis import region_analysis
 from brainreg_manual_seg.image.utils import create_KDTree_from_image
-from brainreg_manual_seg.regions.IO import save_label_layers
+from brainreg_manual_seg.regions.IO import (
+    save_label_layers,
+    export_label_layers,
+)
 
 from brainreg_manual_seg.tracks.analysis import track_analysis
-from brainreg_manual_seg.tracks.IO import save_track_layers
+from brainreg_manual_seg.tracks.IO import save_track_layers, export_splines
 from brainreg_manual_seg.atlas.utils import (
     get_available_atlases,
     display_brain_region_name,
@@ -57,7 +60,7 @@ class ManualSegmentationWidget(QWidget):
         viewer,
         point_size=100,
         spline_size=50,
-        track_file_extension=".h5",
+        track_file_extension=".points",
         image_file_extension=".tiff",
         num_colors=10,
         brush_size=250,
@@ -98,8 +101,6 @@ class ManualSegmentationWidget(QWidget):
         # atlas variables
         self.region_labels = []
 
-        self.common_coordinate_space_default = True
-
         self.boundaries_string = boundaries_string
         self.setup_layout()
 
@@ -112,18 +113,11 @@ class ManualSegmentationWidget(QWidget):
         self.add_loading_panel(1)
         self.add_track_panel(2)
         self.add_region_panel(3)
-
-        self.save_button = add_button(
-            "Save", self.layout, self.save, 4, 1, visibility=False
-        )
+        self.add_saving_panel(4)
 
         self.status_label = QLabel()
         self.status_label.setText("Ready")
         self.layout.addWidget(self.status_label, 5, 0)
-
-        self.layout.setAlignment(QtCore.Qt.AlignTop)
-        self.layout.setSpacing(4)
-        self.setLayout(self.layout)
 
         self.setLayout(self.layout)
 
@@ -165,10 +159,10 @@ class ManualSegmentationWidget(QWidget):
         self.load_data_panel.setVisible(True)
 
     def setup_atlas(self):
-        self.set_output_directory()
         self.atlas_menu, self.atlas_menu_label = self.add_atlas_menu(
             self.load_data_layout
         )
+        self.set_output_directory()
 
     def add_atlas_menu(self, layout):
         list_of_atlasses = [""]
@@ -184,6 +178,8 @@ class ManualSegmentationWidget(QWidget):
             label_stack=True,
             callback=self.initialise_atlas,
         )
+        atlas_menu.setVisible(False)
+        atlas_menu_label.setVisible(False)
         return atlas_menu, atlas_menu_label
 
     def add_track_panel(self, row):
@@ -271,6 +267,28 @@ class ManualSegmentationWidget(QWidget):
 
         self.region_panel.setVisible(False)
 
+    def add_saving_panel(self, row):
+        self.save_data_panel = QGroupBox()
+        self.save_data_layout = QGridLayout()
+
+        self.export_button = add_button(
+            "Export to brainrender",
+            self.save_data_layout,
+            self.export_to_brainrender,
+            0,
+            0,
+            visibility=False,
+        )
+        self.save_button = add_button(
+            "Save", self.save_data_layout, self.save, 0, 1, visibility=False
+        )
+
+        self.save_data_layout.setColumnMinimumWidth(1, 150)
+        self.save_data_panel.setLayout(self.save_data_layout)
+        self.layout.addWidget(self.save_data_panel, row, 0, 1, 2)
+
+        self.save_data_panel.setVisible(False)
+
     def initialise_atlas(self, i):
         atlas_string = self.atlas_menu.currentText()
         atlas_name = atlas_string.split(" ")[0].strip()
@@ -295,6 +313,7 @@ class ManualSegmentationWidget(QWidget):
         self.paths = Paths(self.directory, atlas_space=True)
         self.atlas_menu.setVisible(False)
         self.atlas_menu_label.setVisible(False)
+        self.standard_space = True
         self.initialise_segmentation_interface()
 
     def initialise_image_view(self):
@@ -313,6 +332,8 @@ class ManualSegmentationWidget(QWidget):
         )
         if self.directory != "":
             self.directory = Path(self.directory)
+            self.atlas_menu.setVisible(True)
+            self.atlas_menu_label.setVisible(True)
 
     def load_brainreg_directory_sample(self):
         self.load_brainreg_directory(standard_space=False)
@@ -323,8 +344,10 @@ class ManualSegmentationWidget(QWidget):
     def load_brainreg_directory(self, standard_space=True):
         if standard_space:
             plugin = "brainreg_standard"
+            self.standard_space = True
         else:
             plugin = "brainreg"
+            self.standard_space = False
 
         self.status_label.setText("Loading...")
         options = QFileDialog.Options()
@@ -377,7 +400,9 @@ class ManualSegmentationWidget(QWidget):
             display_brain_region_name(layer, self.atlas.structures)
 
         self.load_button.setMinimumWidth(0)
+        self.save_data_panel.setVisible(True)
         self.save_button.setVisible(True)
+        self.export_button.setVisible(self.standard_space)
         self.initialise_region_segmentation()
         self.initialise_track_tracing()
         self.status_label.setText("Ready")
@@ -430,7 +455,7 @@ class ManualSegmentationWidget(QWidget):
         if self.track_layers:
             print("Running track analysis")
             try:
-                self.splines = track_analysis(
+                self.splines, self.spline_names = track_analysis(
                     self.viewer,
                     self.atlas,
                     self.paths.tracks_directory,
@@ -497,6 +522,40 @@ class ManualSegmentationWidget(QWidget):
             )
             worker.start()
 
+    def export_to_brainrender(self):
+        print("Exporting")
+        max_axis_2 = self.base_layer.shape[2]
+        worker = export_all(
+            self.paths.regions_directory,
+            self.paths.tracks_directory,
+            self.label_layers,
+            self.splines,
+            self.spline_names,
+            self.atlas.resolution[0],
+            max_axis_2,
+        )
+        worker.start()
+
+
+@thread_worker
+def export_all(
+    regions_directory,
+    tracks_directory,
+    label_layers,
+    splines,
+    spline_names,
+    resolution,
+    max_axis_2,
+):
+    if label_layers:
+        export_label_layers(regions_directory, label_layers)
+
+    if splines:
+        export_splines(
+            tracks_directory, splines, spline_names, resolution, max_axis_2
+        )
+    print("Finished!\n")
+
 
 @thread_worker
 def save_all(
@@ -504,7 +563,7 @@ def save_all(
     tracks_directory,
     label_layers,
     points_layers,
-    track_file_extension=".h5",
+    track_file_extension=".points",
 ):
     if label_layers:
         save_label_layers(regions_directory, label_layers)

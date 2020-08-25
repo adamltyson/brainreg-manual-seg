@@ -90,16 +90,42 @@ def save_label_layers(regions_directory, label_layers):
         save_regions_to_file(label_layer, regions_directory)
 
 
+def export_label_layers(regions_directory, label_layers):
+    print(f"Exporting regions to: {regions_directory}")
+    regions_directory.mkdir(parents=True, exist_ok=True)
+    for label_layer in label_layers:
+        export_regions_to_file(label_layer, regions_directory)
+
+
 def save_regions_to_file(
     label_layer,
     destination_directory,
     ignore_empty=True,
-    obj_ext=".obj",
     image_extension=".tiff",
 ):
     """
-    Analysed the regions (to see what brain areas they are in) and saves
-    the segmented regions to file (both as .obj and .nii)
+    Saves the segmented regions to file (as .tiff)
+    :param label_layer: napari labels layer (with segmented regions)
+    :param destination_directory: Where to save files to
+    :param ignore_empty: If True, don't attempt to save empty images
+    :param image_extension: File extension fo the image files
+    """
+    data = label_layer.data
+    if ignore_empty:
+        if data.sum() == 0:
+            return
+
+    name = label_layer.name
+
+    filename = destination_directory / (name + image_extension)
+    imio.to_tiff(data.astype(np.int16), filename)
+
+
+def export_regions_to_file(
+    label_layer, destination_directory, ignore_empty=True, obj_ext=".obj",
+):
+    """
+    Export regions as .obj for brainrender
     :param label_layer: napari labels layer (with segmented regions)
     :param destination_directory: Where to save files to
     :param ignore_empty: If True, don't attempt to save empty images
@@ -117,6 +143,3 @@ def save_regions_to_file(
     volume_to_vector_array_to_obj_file(
         data, filename,
     )
-
-    filename = destination_directory / (name + image_extension)
-    imio.to_tiff(data.astype(np.int16), filename)

@@ -1,5 +1,5 @@
+import pandas as pd
 from pathlib import Path
-from brainreg_manual_seg.tracks.IO import brainrender_track_to_napari
 
 
 def add_new_track_layer(viewer, track_layers, point_size):
@@ -12,10 +12,12 @@ def add_new_track_layer(viewer, track_layers, point_size):
 
 
 def add_existing_track_layers(viewer, track_file, point_size):
-    max_z = len(viewer.layers[0].data)
-    data = brainrender_track_to_napari(track_file, max_z)
+    points = pd.read_hdf(track_file)
     new_points_layer = viewer.add_points(
-        data, n_dimensional=True, size=point_size, name=Path(track_file).stem,
+        points,
+        n_dimensional=True,
+        size=point_size,
+        name=Path(track_file).stem,
     )
     new_points_layer.mode = "ADD"
     return new_points_layer

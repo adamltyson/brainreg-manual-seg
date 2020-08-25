@@ -10,12 +10,9 @@ requirements = [
     "scikit-image>=0.14.0,<0.17.0",
     "pandas>=0.25.1,<=0.25.3",
     "napari[pyqt5]",
-    "brainrender",
     "imlib >= 0.0.26",
     "dask >= 2.15.0",
-    "bg-brainrender-gui",
     "napari-brainreg",
-    "napari-brainreg-standard",
 ]
 
 

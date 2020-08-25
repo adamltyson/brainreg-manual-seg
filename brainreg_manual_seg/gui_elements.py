@@ -8,12 +8,23 @@ from qtpy.QtWidgets import (
 )
 
 
-def add_combobox(layout, label, items, row, column=0):
+def add_combobox(
+    layout, label, items, row, column=0, label_stack=False, callback=None
+):
+    if label_stack:
+        combobox_row = row + 1
+        combobox_column = column
+    else:
+        combobox_row = row
+        combobox_column = column + 1
     combobox = QComboBox()
     combobox.addItems(items)
-    layout.addWidget(QLabel(label), row, column)
-    layout.addWidget(combobox, row, column + 1)
-    return combobox
+    if callback:
+        combobox.currentIndexChanged.connect(callback)
+    combobox_label = QLabel(label)
+    layout.addWidget(combobox_label, row, column)
+    layout.addWidget(combobox, combobox_row, combobox_column)
+    return combobox, combobox_label
 
 
 def add_button(

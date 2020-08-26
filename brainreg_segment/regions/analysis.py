@@ -7,7 +7,7 @@ from skimage.measure import regionprops_table
 from imlib.pandas.misc import initialise_df
 from imlib.general.list import unique_elements_lists
 
-from brainreg_manual_seg.atlas.utils import lateralise_atlas_image
+from brainreg_segment.atlas.utils import lateralise_atlas_image
 
 
 @thread_worker

@@ -1,6 +1,6 @@
 import pandas as pd
 
-from brainreg_manual_seg.tracks.fit import spline_fit
+from brainreg_segment.tracks.fit import spline_fit
 
 
 def track_analysis(

@@ -1,44 +1,10 @@
 import napari
-
 import numpy as np
 
-from qtpy import QtCore
 from pathlib import Path
 from glob import glob
 from napari.qt.threading import thread_worker
-
-from brainreg_manual_seg.paths import Paths
-
-from brainreg_manual_seg.regions.layers import (
-    add_existing_region_segmentation,
-    add_new_region_layer,
-)
-from brainreg_manual_seg.tracks.layers import (
-    add_new_track_layer,
-    add_existing_track_layers,
-)
-
-from brainreg_manual_seg.gui_elements import (
-    add_button,
-    add_checkbox,
-    add_float_box,
-    add_int_box,
-    add_combobox,
-)
-
-from brainreg_manual_seg.regions.analysis import region_analysis
-from brainreg_manual_seg.image.utils import create_KDTree_from_image
-from brainreg_manual_seg.regions.IO import (
-    save_label_layers,
-    export_label_layers,
-)
-
-from brainreg_manual_seg.tracks.analysis import track_analysis
-from brainreg_manual_seg.tracks.IO import save_track_layers, export_splines
-from brainreg_manual_seg.atlas.utils import (
-    get_available_atlases,
-    display_brain_region_name,
-)
+from qtpy import QtCore
 
 from qtpy.QtWidgets import (
     QLabel,
@@ -48,10 +14,41 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
-
-from PyQt5 import QtCore
-
 from bg_atlasapi import BrainGlobeAtlas
+
+from brainreg_manual_seg.paths import Paths
+
+from brainreg_manual_seg.gui_elements import (
+    add_button,
+    add_checkbox,
+    add_float_box,
+    add_int_box,
+    add_combobox,
+)
+
+from brainreg_manual_seg.regions.IO import (
+    save_label_layers,
+    export_label_layers,
+)
+from brainreg_manual_seg.regions.layers import (
+    add_existing_region_segmentation,
+    add_new_region_layer,
+)
+from brainreg_manual_seg.regions.analysis import region_analysis
+
+from brainreg_manual_seg.tracks.IO import save_track_layers, export_splines
+from brainreg_manual_seg.tracks.layers import (
+    add_new_track_layer,
+    add_existing_track_layers,
+)
+from brainreg_manual_seg.tracks.analysis import track_analysis
+
+from brainreg_manual_seg.image.utils import create_KDTree_from_image
+
+from brainreg_manual_seg.atlas.utils import (
+    get_available_atlases,
+    display_brain_region_name,
+)
 
 
 class ManualSegmentationWidget(QWidget):
